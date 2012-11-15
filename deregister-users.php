@@ -14,7 +14,7 @@
 
 /**
  * Plugin Name: Deregister Users
- * Plugin URI:  http://jaco.by
+ * Plugin URI:  http://wordpress.org/extend/plugins/deregister-users/
  * Description: Converts topic and reply authors into anonymous, logged out users
  * Author:      John James Jacoby
  * Author URI:  http://johnjamesjacoby.com
