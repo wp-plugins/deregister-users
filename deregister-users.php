@@ -170,8 +170,30 @@ final class WP_Deregister_Users {
 		if ( $this->is_deactivation( $this->basename ) )
 			return;
 
-		
+		// Add the 'Users' tab to tools
+		add_filter( 'bbp_tools_admin_tabs', array( $this, 'tools_tab' ) );
 	}
+
+	/** Filters ***************************************************************/
+
+	/**
+	 * Add the tab for users to bbPress's tools
+	 *
+	 * @since 0.1
+	 *
+	 * @param array $tabs Associative array of tabs and their details
+	 * @return array
+	 */
+	public function tools_tab( $tabs = array() ) {
+		$tabs['3'] = array(
+			'href' => get_admin_url( '', add_query_arg( array( 'page' => 'bbp-deregister' ), 'tools.php' ) ),
+			'name' => __( 'Users', 'wpdu' )
+		);
+
+		return $tabs;
+	}
+
+	/** Helpers ***************************************************************/
 
 	/**
 	 * Are we being deactivated?
