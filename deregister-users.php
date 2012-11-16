@@ -219,6 +219,9 @@ final class WP_Deregister_Users {
 	 */
 	public function display() {
 
+		// Should be checked
+		$roles = array_intersect( array_keys( bbp_get_dynamic_roles() ), $this->get_post_roles() );
+
 		// Get counts
 		$total_users   = count( get_users() );
 		$total_topics  = array_sum( array_values( (array) wp_count_posts( bbp_get_topic_post_type() ) ) );
@@ -230,11 +233,31 @@ final class WP_Deregister_Users {
 
 			<h2 class="nav-tab-wrapper"><?php bbp_tools_admin_tabs( __( 'Users', 'wpdu' ) ); ?></h2>
 
+			<?php if ( ! empty( $_GET['updated'] ) ) : ?>
+				<div id="message" class="updated"><p><?php _e( 'All done!', 'wpdu' ); ?></p></div>
+			<?php endif; ?>
+
 			<p><?php printf( __( 'You have %s users, %s topics, and %s replies to potentially deregister.', 'wpdu' ), '<strong>' . $total_users . '</strong>', '<strong>' . $total_topics . '</strong>', '<strong>' . $total_replies . '</strong>' ); ?></p>
 
 			<form class="settings" method="post" action="">
 				<table class="form-table">
 					<tbody>
+						<tr valign="top">
+							<th scope="row"><?php _e( 'Skip these Roles:', 'wpdu' ) ?></th>
+							<td>
+								<fieldset>
+									<legend class="screen-reader-text"><span><?php _e( 'Keymasters', 'wudu' ) ?></span></legend>
+
+									<?php foreach ( bbp_get_dynamic_roles() as $role => $details ) : ?>
+
+									<label><input type="checkbox" class="checkbox" name="wp-role[]" id="wp-role-<?php echo esc_attr( $role ); ?>" value="<?php echo esc_attr( $role ); ?>" <?php checked( in_array( $role, array_values( $roles ) ) ); ?> /> <?php echo $details['name']; ?></label><br />
+
+									<?php endforeach; ?>
+
+								</fieldset>
+							</td>
+						</tr>						
+
 						<tr valign="top">
 							<th scope="row"><?php _e( 'Deregister Users:', 'wpdu' ) ?></th>
 							<td>
@@ -276,18 +299,13 @@ final class WP_Deregister_Users {
 		check_admin_referer( 'wp-deregister-users' );
 
 		// Get all of the users on this site
-		$users  = get_users();
-		$errors = array();
+		$users    = get_users();
 
 		// Loop through all of the users
 		foreach ( $users as $details ) {
 
-			// Skip Keymasters
-			if ( in_array( bbp_get_keymaster_role(), $details->roles ) )
-				continue;
-
-			// Skip moderators
-			if ( in_array( bbp_get_moderator_role(), $details->roles ) )
+			// Skip certain roles
+			if ( in_array( bbp_get_user_role( $details->ID ), $this->get_post_roles() ) )
 				continue;
 
 			/** Topics ********************************************************/
@@ -301,8 +319,8 @@ final class WP_Deregister_Users {
 			) );
 
 			// Loop through topics
-			foreach ( $topics as $topic ) {
-				$errors[] = $this->convert_post_author( $topic, $details );
+			foreach ( (array) $topics->posts as $topic ) {
+				$this->make_deregistered( $topic, $details );
 			}
 
 			/** Replies *******************************************************/
@@ -316,15 +334,13 @@ final class WP_Deregister_Users {
 			) );
 
 			// Loop through topics
-			foreach ( $replies as $reply ) {
-				$errors[] = $this->convert_post_author( $reply, $details );
+			foreach ( (array) $replies->posts as $reply ) {
+				$this->make_deregistered( $reply, $details );
 			}
 		}
 
-		// Loop through errors and turn them into something useful
-		if ( ! empty( $errors ) ) {
-			
-		}
+		// All done, redirect
+		wp_safe_redirect( add_query_arg( array( 'updated' => '1', 'page' => 'bbp-deregister' ), admin_url( 'tools.php' ) ) );
 	}
 
 	/** Filters ***************************************************************/
@@ -355,8 +371,37 @@ final class WP_Deregister_Users {
 	 * @param WP_Post $post
 	 * @param WP_User $user
 	 */
-	private function convert_post_author( $post, $user ) {
-		return false;
+	private function make_deregistered( $post, $user ) {
+		global $user_ID;
+
+		// Store the old user ID, just in case we want to revert
+		update_post_meta( $post->ID, '_bbp_old_user_id',       $user->ID           );
+
+		// Add the post meta
+		update_post_meta( $post->ID, '_bbp_anonymous_name',    $user->display_name );
+		update_post_meta( $post->ID, '_bbp_anonymous_email',   $user->user_email   );
+		update_post_meta( $post->ID, '_bbp_anonymous_website', $user->user_url     );
+
+		// Set the global as 0, so it can get set as 0 in wp_insert_post()
+		// Kind of a hack, but works fine enough for now
+		$old_user_id = $user_ID;
+		$user_ID     = 0;
+
+		// Remove the post_author
+		wp_update_post( array( 'ID' => $post->ID, 'post_author' => 0 ) );
+
+		// Put back the original user ID - dehack the hack
+		$user_ID = $old_user_id;
+	}
+
+	/**
+	 * Roles posted to deregister
+	 *
+	 * @since 0.1
+	 * @return array
+	 */
+	private static function get_post_roles() {
+		return !empty( $_POST['wp-role'] ) ? (array) $_POST['wp-role'] : array( bbp_get_moderator_role(), bbp_get_keymaster_role() );
 	}
 
 	/**
