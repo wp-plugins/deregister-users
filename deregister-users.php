@@ -170,10 +170,110 @@ final class WP_Deregister_Users {
 		if ( $this->is_deactivation( $this->basename ) )
 			return;
 
+		// Menu actions
+		add_action( 'bbp_admin_menu',       array( $this, 'admin_menu'       ) );
+		add_action( 'bbp_admin_head',       array( $this, 'admin_head'       ) );
+
+		// Action action
+		add_action( 'bbp_admin_init',       array( $this, 'deregister_users' ) );
+
 		// Add the 'Users' tab to tools
 		add_filter( 'bbp_tools_admin_tabs', array( $this, 'tools_tab' ) );
 	}
 
+	/** Actions ***************************************************************/
+	
+	/**
+	 * Add the faux menu page, removed in admin_head
+	 *
+	 * @since 0.1
+	 */
+	public function admin_menu() {
+		$hooks[] = add_management_page(
+			__( 'Deregister Users', 'bbpress' ),
+			__( 'Deregister Users', 'bbpress' ),
+			'manage_options',
+			'bbp-deregister',
+			array( $this, 'display' )
+		);
+
+		// Fudge the highlighted subnav item when on a bbPress admin page
+		foreach( $hooks as $hook ) {
+			add_action( "admin_head-$hook", 'bbp_tools_modify_menu_highlight' );
+		}
+	}
+
+	/**
+	 * Remove the faux menu page
+	 *
+	 * @since 0.1
+	 */
+	public function admin_head() {
+		remove_submenu_page( 'tools.php', 'bbp-deregister' );
+	}
+
+	/**
+	 * Output for the page
+	 *
+	 * @since 0.1
+	 */
+	public function display() {
+
+		// Get counts
+		$total_users   = count( get_users() );
+		$total_topics  = array_sum( array_values( (array) wp_count_posts( bbp_get_topic_post_type() ) ) );
+		$total_replies = array_sum( array_values( (array) wp_count_posts( bbp_get_reply_post_type() ) ) ); ?>
+
+		<div class="wrap">
+
+			<?php screen_icon( 'tools' ); ?>
+
+			<h2 class="nav-tab-wrapper"><?php bbp_tools_admin_tabs( __( 'Users', 'wpdu' ) ); ?></h2>
+
+			<p><?php printf( __( 'You have %s users, %s topics, and %s replies to potentially deregister.', 'wpdu' ), '<strong>' . $total_users . '</strong>', '<strong>' . $total_topics . '</strong>', '<strong>' . $total_replies . '</strong>' ); ?></p>
+
+			<form class="settings" method="post" action="">
+				<table class="form-table">
+					<tbody>
+						<tr valign="top">
+							<th scope="row"><?php _e( 'Deregister Users:', 'wpdu' ) ?></th>
+							<td>
+								<fieldset>
+									<legend class="screen-reader-text"><span><?php _e( 'Do it', 'wudu' ) ?></span></legend>
+									<label><input type="checkbox" class="checkbox" name="wp-deregister" id="wp-deregister" value="1" /> <?php _e( 'I am totally ready to do this.', 'wpdu' ); ?></label>
+								</fieldset>
+							</td>
+						</tr>
+					</tbody>
+				</table>
+
+				<fieldset class="submit">
+					<input class="button-primary" type="submit" name="submit" value="<?php esc_attr_e( 'Deregister Users', 'wpdu' ); ?>" />
+					<?php wp_nonce_field( 'wp-deregister-users' ); ?>
+				</fieldset>
+			</form>
+		</div>
+
+	<?php
+	}
+
+	public function deregister_users() {
+		
+		// Bail if not a POST action
+		if ( 'POST' !== strtoupper( $_SERVER['REQUEST_METHOD'] ) )
+			return;
+
+		// Bail if action is not wp-deregister-users
+		if ( empty( $_POST['action'] ) || ( 'wp-deregister-users' !== $_POST['action'] ) )
+			return;
+
+		$users = get_users();
+		
+		foreach ( $users as $user_id => $details ) {
+			
+		}
+	}
+	
 	/** Filters ***************************************************************/
 
 	/**
