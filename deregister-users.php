@@ -182,7 +182,7 @@ final class WP_Deregister_Users {
 	}
 
 	/** Actions ***************************************************************/
-	
+
 	/**
 	 * Add the faux menu page, removed in admin_head
 	 *
@@ -257,23 +257,76 @@ final class WP_Deregister_Users {
 	<?php
 	}
 
+	/**
+	 * Do da dang ding
+	 *
+	 * @since 0.1
+	 * @return If it's not the right time or place for this to happen
+	 */
 	public function deregister_users() {
-		
+
 		// Bail if not a POST action
 		if ( 'POST' !== strtoupper( $_SERVER['REQUEST_METHOD'] ) )
 			return;
 
 		// Bail if action is not wp-deregister-users
-		if ( empty( $_POST['action'] ) || ( 'wp-deregister-users' !== $_POST['action'] ) )
+		if ( empty( $_POST['wp-deregister'] ) || ( '1' !== $_POST['wp-deregister'] ) )
 			return;
 
-		$users = get_users();
-		
-		foreach ( $users as $user_id => $details ) {
+		check_admin_referer( 'wp-deregister-users' );
+
+		// Get all of the users on this site
+		$users  = get_users();
+		$errors = array();
+
+		// Loop through all of the users
+		foreach ( $users as $details ) {
+
+			// Skip Keymasters
+			if ( in_array( bbp_get_keymaster_role(), $details->roles ) )
+				continue;
+
+			// Skip moderators
+			if ( in_array( bbp_get_moderator_role(), $details->roles ) )
+				continue;
+
+			/** Topics ********************************************************/
+
+			// Get the topics
+			$topics = new WP_Query( array(
+				'post_type'      => bbp_get_topic_post_type(),
+				'post_status'    => 'all',
+				'author'         => $details->ID,
+				'posts_per_page' => -1
+			) );
+
+			// Loop through topics
+			foreach ( $topics as $topic ) {
+				$errors[] = $this->convert_post_author( $topic, $details );
+			}
+
+			/** Replies *******************************************************/
+
+			// Get the topics
+			$replies = new WP_Query( array(
+				'post_type'      => bbp_get_reply_post_type(),
+				'post_status'    => 'all',
+				'author'         => $details->ID,
+				'posts_per_page' => -1
+			) );
+
+			// Loop through topics
+			foreach ( $replies as $reply ) {
+				$errors[] = $this->convert_post_author( $reply, $details );
+			}
+		}
+
+		// Loop through errors and turn them into something useful
+		if ( ! empty( $errors ) ) {
 			
 		}
 	}
-	
+
 	/** Filters ***************************************************************/
 
 	/**
@@ -294,6 +347,17 @@ final class WP_Deregister_Users {
 	}
 
 	/** Helpers ***************************************************************/
+
+	/**
+	 * Commence da jigglin'
+	 *
+	 * @since 0.1
+	 * @param WP_Post $post
+	 * @param WP_User $user
+	 */
+	private function convert_post_author( $post, $user ) {
+		return false;
+	}
 
 	/**
 	 * Are we being deactivated?
