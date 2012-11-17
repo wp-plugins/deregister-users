@@ -18,7 +18,7 @@
  * Description: Converts topic and reply authors into anonymous, logged out users
  * Author:      John James Jacoby
  * Author URI:  http://johnjamesjacoby.com
- * Version:     0.1
+ * Version:     1.0
  * Text Domain: wpdu
  */
 
@@ -381,6 +381,9 @@ final class WP_Deregister_Users {
 		update_post_meta( $post->ID, '_bbp_anonymous_name',    $user->display_name );
 		update_post_meta( $post->ID, '_bbp_anonymous_email',   $user->user_email   );
 		update_post_meta( $post->ID, '_bbp_anonymous_website', $user->user_url     );
+
+		// Remove the users role
+		bbp_get_user_role( $user->ID );
 
 		// Set the global as 0, so it can get set as 0 in wp_insert_post()
 		// Kind of a hack, but works fine enough for now
